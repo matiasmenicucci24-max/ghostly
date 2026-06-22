@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleSignIn()"></script>
 <style>
   :root{
     --void:#121012;
@@ -328,17 +329,9 @@
   .account-msg[hidden]{ display:none; }
   .divider{ display:flex; align-items:center; gap:.6rem; margin:1.1rem 0; color:var(--fog); font-family:var(--ff-mono); font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; }
   .divider::before, .divider::after{ content:""; flex:1; height:1px; background:var(--line); }
-  .google-btn{
-    width:100%; display:flex; align-items:center; justify-content:center; gap:.6rem;
-    background:var(--bone); color:#1c1a1a; border:1px solid var(--line); border-radius:4px;
-    padding:.7rem; font-family:var(--ff-body); font-weight:600; font-size:.85rem; cursor:pointer;
-    transition:background .2s;
-  }
-  .google-btn:hover{ background:#fff; }
-  .g-badge{
-    display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
-    border-radius:50%; background:#fff; border:1px solid #ddd;
-    font-family:var(--ff-display); font-weight:700; font-size:.7rem; color:#444;
+  .google-btn-slot{
+    width:100%; min-height:42px;
+    display:flex; align-items:center; justify-content:center;
   }
   .account-note{ font-size:.68rem; color:var(--fog); margin-top:1rem; line-height:1.45; }
   .account-loggedin p{ font-size:.9rem; color:var(--bone-dim); margin:0 0 1.2rem; line-height:1.5; }
@@ -816,8 +809,8 @@
         <button type="button" class="cta-stamp" id="loginSubmit">Iniciar sesión</button>
       </div>
       <div class="divider">o</div>
-      <button type="button" class="google-btn" id="googleLoginBtn"><span class="g-badge">G</span> Continuar con Google</button>
-      <p class="account-note">Demo: cualquier email y contraseña inician sesión. El botón de Google es de muestra — para que funcione de verdad hay que conectarlo con un backend de autenticación real.</p>
+      <div class="google-btn-slot" id="googleButtonContainer"></div>
+      <p class="account-note">Demo: cualquier email y contraseña inician sesión (eso todavía es simulado). El botón de Google sí es real — autentica de verdad contra tu cuenta de Google.</p>
     </div>
 
     <div id="accountLoggedIn" class="account-loggedin" hidden>
@@ -1282,9 +1275,41 @@
     });
   });
 
-  document.getElementById('googleLoginBtn').addEventListener('click', () => {
-    loginSuccess('vos@gmail.com');
-  });
+  /* =========================================================
+     GOOGLE SIGN-IN (real)
+  ========================================================= */
+  function decodeJwtPayload(token){
+    try{
+      const base64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+      const json = decodeURIComponent(
+        atob(base64).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join('')
+      );
+      return JSON.parse(json);
+    } catch(e){
+      return null;
+    }
+  }
+
+  function handleGoogleCredential(response){
+    const payload = decodeJwtPayload(response.credential);
+    if(!payload || !payload.email){
+      showToast('No pudimos leer tu cuenta de Google');
+      return;
+    }
+    loginSuccess(payload.email);
+  }
+
+  function initGoogleSignIn(){
+    if(!window.google || !google.accounts || !google.accounts.id) return;
+    google.accounts.id.initialize({
+      client_id: "63349130981-kssubt1p3ctj50pp4eqo1ej5t7slmqvb.apps.googleusercontent.com",
+      callback: handleGoogleCredential
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('googleButtonContainer'),
+      { theme: "filled_black", size: "large", shape: "pill", text: "continue_with", width: 280 }
+    );
+  }
 
   document.getElementById('logoutBtn').addEventListener('click', () => {
     state.user = null;
